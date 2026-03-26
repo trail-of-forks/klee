@@ -53,6 +53,8 @@ static bool runDivCheckPass(Module &M) {
           continue;
 
         // Check if the divisor is a known non-zero constant, skip in that case.
+        // Uses dyn_cast<Constant> (not ConstantInt) to also match
+        // ConstantAggregateZero and other constant kinds with isZeroValue().
         const auto &operand = binOp->getOperand(1);
         if (const auto &coOp = dyn_cast<Constant>(operand)) {
           if (!coOp->isZeroValue())
@@ -76,6 +78,9 @@ static bool runDivCheckPass(Module &M) {
   auto divZeroCheckFunction =
       M.getOrInsertFunction("klee_div_zero_check", Type::getVoidTy(ctx),
                             Type::getInt64Ty(ctx));
+  if (!isa<Function>(divZeroCheckFunction.getCallee()))
+    report_fatal_error("klee_div_zero_check declaration conflicts with "
+                       "existing symbol of different type");
 
   for (auto &divInst : divInstruction) {
     IRBuilder<> Builder(divInst /* Inserts before divInst*/);
@@ -106,7 +111,9 @@ static bool runOvershiftCheckPass(Module &M) {
           continue;
 
         // Check if the shift amount is a constant within the valid range
-        // [0, typeWidth), skip instrumentation in that case
+        // [0, typeWidth), skip instrumentation in that case.
+        // Uses dyn_cast<ConstantInt> (not Constant) because range checking
+        // requires concrete integer value access via getZExtValue/isNegative.
         auto operand = binOp->getOperand(1);
         if (auto coOp = dyn_cast<ConstantInt>(operand)) {
           auto typeWidth =
@@ -134,6 +141,9 @@ static bool runOvershiftCheckPass(Module &M) {
   auto overshiftCheckFunction = M.getOrInsertFunction(
       "klee_overshift_check", Type::getVoidTy(ctx), Type::getInt64Ty(ctx),
       Type::getInt64Ty(ctx));
+  if (!isa<Function>(overshiftCheckFunction.getCallee()))
+    report_fatal_error("klee_overshift_check declaration conflicts with "
+                       "existing symbol of different type");
 
   for (auto &shiftInst : shiftInstructions) {
     IRBuilder<> Builder(shiftInst);
