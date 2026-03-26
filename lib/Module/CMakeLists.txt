@@ -53,6 +53,7 @@ llvm_config(kleeModule "${USE_LLVM_SHARED}"
   object
   mc
   binaryformat
+  passes
   )
 
 target_link_libraries(kleeModule PRIVATE
