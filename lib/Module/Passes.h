@@ -86,6 +86,23 @@ public:
 
 // This is a module pass because it can add and delete module
 // variables (via intrinsic lowering).
+#if LLVM_VERSION_MAJOR >= 17
+class IntrinsicCleanerPass : public llvm::PassInfoMixin<IntrinsicCleanerPass> {
+  const llvm::DataLayout &DataLayout;
+  llvm::IntrinsicLowering *IL;
+
+  bool runOnBasicBlock(llvm::BasicBlock &b, llvm::Module &M);
+  bool runOnFunction(llvm::Function &F);
+  bool runOnModule(llvm::Module &M);
+
+public:
+  IntrinsicCleanerPass(const llvm::DataLayout &TD)
+      : DataLayout(TD), IL(new llvm::IntrinsicLowering(TD)) {}
+  ~IntrinsicCleanerPass() { delete IL; }
+
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
+#else
 class IntrinsicCleanerPass : public llvm::ModulePass {
   static char ID;
   const llvm::DataLayout &DataLayout;
@@ -102,6 +119,7 @@ public:
 
   bool runOnModule(llvm::Module &M) override;
 };
+#endif
 
 // performs two transformations which make interpretation
 // easier and faster.
