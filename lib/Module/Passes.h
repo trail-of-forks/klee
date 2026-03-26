@@ -262,7 +262,8 @@ private:
   static const llvm::FunctionType *getFunctionType(const llvm::GlobalValue *gv);
   static bool checkType(const llvm::GlobalValue *match, const llvm::GlobalValue *replacement);
   static bool tryToReplace(llvm::GlobalValue *match, llvm::GlobalValue *replacement);
-  static bool isFunctionOrGlobalFunctionAlias(const llvm::GlobalValue *gv);
+  static bool isFunctionOrGlobalFunctionAlias(const llvm::GlobalValue *gv,
+                                               unsigned depth = 0);
 };
 #else
 class FunctionAliasPass : public llvm::ModulePass {
@@ -275,7 +276,8 @@ private:
   static const llvm::FunctionType *getFunctionType(const llvm::GlobalValue *gv);
   static bool checkType(const llvm::GlobalValue *match, const llvm::GlobalValue *replacement);
   static bool tryToReplace(llvm::GlobalValue *match, llvm::GlobalValue *replacement);
-  static bool isFunctionOrGlobalFunctionAlias(const llvm::GlobalValue *gv);
+  static bool isFunctionOrGlobalFunctionAlias(const llvm::GlobalValue *gv,
+                                               unsigned depth = 0);
 };
 #endif
 

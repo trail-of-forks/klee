@@ -151,6 +151,13 @@ bool FunctionAliasPass::checkType(const GlobalValue *match,
   const FunctionType *MFT = getFunctionType(match);
   const FunctionType *RFT = getFunctionType(replacement);
   assert(MFT != nullptr && RFT != nullptr);
+  if (!MFT || !RFT) {
+    klee_warning("function-alias: @%s could not be replaced with @%s: "
+                 "unable to determine function type",
+                 match->getName().str().c_str(),
+                 replacement->getName().str().c_str());
+    return false;
+  }
 
   if (MFT->getReturnType() != RFT->getReturnType()) {
     klee_warning("function-alias: @%s could not be replaced with @%s: "
@@ -202,7 +209,11 @@ bool FunctionAliasPass::tryToReplace(GlobalValue *match,
   return true;
 }
 
-bool FunctionAliasPass::isFunctionOrGlobalFunctionAlias(const GlobalValue *gv) {
+bool FunctionAliasPass::isFunctionOrGlobalFunctionAlias(const GlobalValue *gv,
+                                                        unsigned depth) {
+  if (depth > 32)
+    return false;
+
   if (isa_and_nonnull<Function>(gv))
     return true;
 
@@ -215,7 +226,7 @@ bool FunctionAliasPass::isFunctionOrGlobalFunctionAlias(const GlobalValue *gv) {
         return false;
       aliasee = dyn_cast<GlobalValue>(cexpr->getOperand(0));
     }
-    return isFunctionOrGlobalFunctionAlias(aliasee);
+    return isFunctionOrGlobalFunctionAlias(aliasee, depth + 1);
   }
 
   return false;
