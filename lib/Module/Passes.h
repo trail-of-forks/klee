@@ -95,6 +95,13 @@ public:
 //    a subsequent PHI node in the same basic block. This allows
 //    the transfer to execute the instructions in order instead
 //    of in two passes.
+#if LLVM_VERSION_MAJOR >= 17
+class PhiCleanerPass : public llvm::PassInfoMixin<PhiCleanerPass> {
+public:
+  llvm::PreservedAnalyses run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM);
+};
+#else
 class PhiCleanerPass : public llvm::FunctionPass {
   static char ID;
 
@@ -103,6 +110,7 @@ public:
 
   bool runOnFunction(llvm::Function &f) override;
 };
+#endif
 
 #if LLVM_VERSION_MAJOR >= 17
 class DivCheckPass : public llvm::PassInfoMixin<DivCheckPass> {
