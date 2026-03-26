@@ -1,16 +1,9 @@
-// FIXME: This file is a bastard child of opt.cpp and llvm-ld's
-// Optimize.cpp. This stuff should live in common code.
-
-//===- Optimize.cpp - Optimize a complete program -------------------------===//
+//===-- Optimize.cpp - Optimize a complete program -------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
+//                     The KLEE Symbolic Virtual Machine
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
-//
-//===----------------------------------------------------------------------===//
-//
-// This file implements all optimization of the linked module for llvm-ld.
 //
 //===----------------------------------------------------------------------===//
 
