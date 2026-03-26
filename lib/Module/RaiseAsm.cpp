@@ -11,6 +11,8 @@
 #include "klee/Config/Version.h"
 #include "klee/Support/ErrorHandling.h"
 
+#include <memory>
+
 #include "klee/Support/CompilerWarning.h"
 DISABLE_WARNING_PUSH
 DISABLE_WARNING_DEPRECATED_DECLARATIONS
@@ -88,19 +90,24 @@ bool RaiseAsmPass::runOnModule(Module &M) {
     TargetTriple = sys::getDefaultTargetTriple();
   const Target *Tgt = TargetRegistry::lookupTarget(TargetTriple, Err);
 
-  TargetMachine *TM = nullptr;
+  std::unique_ptr<TargetMachine> TM;
   if (Tgt == nullptr) {
     klee_warning("Warning: unable to select target: %s", Err.c_str());
     TLI = nullptr;
   } else {
 #if LLVM_VERSION_CODE >= LLVM_VERSION(16, 0)
-    TM = Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
-                                  std::nullopt);
+    TM.reset(Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
+                                      std::nullopt));
 #else
-    TM = Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(), None);
+    TM.reset(Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
+                                      None));
 #endif
-    TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
-    triple = Triple(TargetTriple);
+    if (M.empty()) {
+      TLI = nullptr;
+    } else {
+      TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
+      triple = Triple(TargetTriple);
+    }
   }
 
   for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
@@ -113,7 +120,6 @@ bool RaiseAsmPass::runOnModule(Module &M) {
     }
   }
 
-  delete TM;
   return changed;
 }
 
