@@ -36,10 +36,8 @@ DISABLE_WARNING_POP
 using namespace llvm;
 using namespace klee;
 
-char DivCheckPass::ID;
-
-bool DivCheckPass::runOnModule(Module &M) {
-  std::vector<llvm::BinaryOperator *> divInstruction;
+static bool runDivCheckPass(Module &M) {
+  std::vector<BinaryOperator *> divInstruction;
 
   for (auto &F : M) {
     for (auto &BB : F) {
@@ -56,7 +54,7 @@ bool DivCheckPass::runOnModule(Module &M) {
 
         // Check if the operand is constant and not zero, skip in that case.
         const auto &operand = binOp->getOperand(1);
-        if (const auto &coOp = dyn_cast<llvm::Constant>(operand)) {
+        if (const auto &coOp = dyn_cast<Constant>(operand)) {
           if (!coOp->isZeroValue())
             continue;
         }
@@ -80,7 +78,7 @@ bool DivCheckPass::runOnModule(Module &M) {
                             Type::getInt64Ty(ctx));
 
   for (auto &divInst : divInstruction) {
-    llvm::IRBuilder<> Builder(divInst /* Inserts before divInst*/);
+    IRBuilder<> Builder(divInst /* Inserts before divInst*/);
     auto denominator =
         Builder.CreateIntCast(divInst->getOperand(1), Type::getInt64Ty(ctx),
                               false, /* sign doesn't matter */
@@ -92,10 +90,8 @@ bool DivCheckPass::runOnModule(Module &M) {
   return true;
 }
 
-char OvershiftCheckPass::ID;
-
-bool OvershiftCheckPass::runOnModule(Module &M) {
-  std::vector<llvm::BinaryOperator *> shiftInstructions;
+static bool runOvershiftCheckPass(Module &M) {
+  std::vector<BinaryOperator *> shiftInstructions;
   for (auto &F : M) {
     for (auto &BB : F) {
       for (auto &I : BB) {
@@ -111,7 +107,7 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
 
         // Check if the operand is constant and not zero, skip in that case
         auto operand = binOp->getOperand(1);
-        if (auto coOp = dyn_cast<llvm::ConstantInt>(operand)) {
+        if (auto coOp = dyn_cast<ConstantInt>(operand)) {
           auto typeWidth =
               binOp->getOperand(0)->getType()->getScalarSizeInBits();
           // If the constant shift is positive and smaller,equal the type width,
@@ -139,12 +135,13 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
       Type::getInt64Ty(ctx));
 
   for (auto &shiftInst : shiftInstructions) {
-    llvm::IRBuilder<> Builder(shiftInst);
+    IRBuilder<> Builder(shiftInst);
 
-    std::vector<llvm::Value *> args;
+    std::vector<Value *> args;
 
     // Determine bit width of first operand
-    uint64_t bitWidth = shiftInst->getOperand(0)->getType()->getScalarSizeInBits();
+    uint64_t bitWidth =
+        shiftInst->getOperand(0)->getType()->getScalarSizeInBits();
     auto bitWidthC = ConstantInt::get(Type::getInt64Ty(ctx), bitWidth, false);
     args.push_back(bitWidthC);
 
@@ -160,3 +157,28 @@ bool OvershiftCheckPass::runOnModule(Module &M) {
 
   return true;
 }
+
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses DivCheckPass::run(Module &M, ModuleAnalysisManager &AM) {
+  if (runDivCheckPass(M))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
+}
+
+PreservedAnalyses OvershiftCheckPass::run(Module &M,
+                                          ModuleAnalysisManager &AM) {
+  if (runOvershiftCheckPass(M))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
+}
+#else
+char DivCheckPass::ID;
+
+bool DivCheckPass::runOnModule(Module &M) { return runDivCheckPass(M); }
+
+char OvershiftCheckPass::ID;
+
+bool OvershiftCheckPass::runOnModule(Module &M) {
+  return runOvershiftCheckPass(M);
+}
+#endif

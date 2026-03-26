@@ -104,6 +104,12 @@ public:
   bool runOnFunction(llvm::Function &f) override;
 };
 
+#if LLVM_VERSION_MAJOR >= 17
+class DivCheckPass : public llvm::PassInfoMixin<DivCheckPass> {
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
+#else
 class DivCheckPass : public llvm::ModulePass {
   static char ID;
 
@@ -111,6 +117,7 @@ public:
   DivCheckPass() : ModulePass(ID) {}
   bool runOnModule(llvm::Module &M) override;
 };
+#endif
 
 /// This pass injects checks to check for overshifting.
 ///
@@ -126,6 +133,12 @@ public:
 ///     x << 8 ; // Undefined behaviour
 ///     x << 255 ; // Undefined behaviour
 /// \endcode
+#if LLVM_VERSION_MAJOR >= 17
+class OvershiftCheckPass : public llvm::PassInfoMixin<OvershiftCheckPass> {
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
+#else
 class OvershiftCheckPass : public llvm::ModulePass {
   static char ID;
 
@@ -133,6 +146,7 @@ public:
   OvershiftCheckPass() : ModulePass(ID) {}
   bool runOnModule(llvm::Module &M) override;
 };
+#endif
 
 /// LowerSwitchPass - Replace all SwitchInst instructions with chained branch
 /// instructions.  Note that this cannot be a BasicBlock pass because it
