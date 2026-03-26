@@ -25,6 +25,9 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#if LLVM_VERSION_MAJOR >= 17
+#include "llvm/IR/PassManager.h"
+#endif
 DISABLE_WARNING_POP
 
 namespace llvm {
@@ -195,12 +198,19 @@ private:
 };
 
 /// Instruments every function that contains a KLEE function call as nonopt
+#if LLVM_VERSION_MAJOR >= 17
+class OptNonePass : public llvm::PassInfoMixin<OptNonePass> {
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
+#else
 class OptNonePass : public llvm::ModulePass {
 public:
   static char ID;
   OptNonePass() : llvm::ModulePass(ID) {}
   bool runOnModule(llvm::Module &M) override;
 };
+#endif
 } // namespace klee
 
 #endif /* KLEE_PASSES_H */

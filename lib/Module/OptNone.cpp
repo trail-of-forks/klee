@@ -16,14 +16,14 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Module.h"
 
+using namespace llvm;
+
 namespace klee {
 
-char OptNonePass::ID;
-
-bool OptNonePass::runOnModule(llvm::Module &M) {
+static bool runOptNonePass(Module &M) {
   // Find list of functions that start with `klee_`
   // and mark all functions that contain such call or invoke as optnone
-  llvm::SmallPtrSet<llvm::Function *,16> CallingFunctions;
+  SmallPtrSet<Function *, 16> CallingFunctions;
   for (auto &F : M) {
     if (!F.hasName())
       continue;
@@ -37,9 +37,9 @@ bool OptNonePass::runOnModule(llvm::Module &M) {
 
     for (auto *U : F.users()) {
       // skip non-calls and non-invokes
-      if (!llvm::isa<llvm::CallInst>(U) && !llvm::isa<llvm::InvokeInst>(U))
+      if (!isa<CallInst>(U) && !isa<InvokeInst>(U))
         continue;
-      auto *Inst = llvm::cast<llvm::Instruction>(U);
+      auto *Inst = cast<Instruction>(U);
       CallingFunctions.insert(Inst->getParent()->getParent());
     }
   }
@@ -47,13 +47,26 @@ bool OptNonePass::runOnModule(llvm::Module &M) {
   bool changed = false;
   for (auto F : CallingFunctions) {
     // Skip if already annotated
-    if (F->hasFnAttribute(llvm::Attribute::OptimizeNone))
+    if (F->hasFnAttribute(Attribute::OptimizeNone))
       continue;
-    F->addFnAttr(llvm::Attribute::OptimizeNone);
-    F->addFnAttr(llvm::Attribute::NoInline);
+    F->addFnAttr(Attribute::OptimizeNone);
+    F->addFnAttr(Attribute::NoInline);
     changed = true;
   }
 
   return changed;
 }
+
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses OptNonePass::run(Module &M, ModuleAnalysisManager &AM) {
+  if (runOptNonePass(M))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
+}
+#else
+char OptNonePass::ID;
+
+bool OptNonePass::runOnModule(Module &M) { return runOptNonePass(M); }
+#endif
+
 } // namespace klee
