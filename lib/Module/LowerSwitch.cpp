@@ -29,15 +29,13 @@ using namespace llvm;
 
 namespace klee {
 
-char LowerSwitchPass::ID = 0;
-
 // The comparison function for sorting the switch case values in the vector.
 struct SwitchCaseCmp {
-  bool operator () (const LowerSwitchPass::SwitchCase& C1,
-                    const LowerSwitchPass::SwitchCase& C2) {
-    
-    const ConstantInt* CI1 = cast<const ConstantInt>(C1.value);
-    const ConstantInt* CI2 = cast<const ConstantInt>(C2.value);
+  bool operator()(const LowerSwitchPass::SwitchCase &C1,
+                  const LowerSwitchPass::SwitchCase &C2) {
+
+    const ConstantInt *CI1 = cast<const ConstantInt>(C1.value);
+    const ConstantInt *CI2 = cast<const ConstantInt>(C2.value);
     return CI1->getValue().slt(CI2->getValue());
   }
 };
@@ -45,7 +43,7 @@ struct SwitchCaseCmp {
 bool LowerSwitchPass::runOnFunction(Function &F) {
   bool changed = false;
 
-  for (Function::iterator I = F.begin(), E = F.end(); I != E; ) {
+  for (Function::iterator I = F.begin(), E = F.end(); I != E;) {
     BasicBlock *cur = &*I;
     I++; // Advance over block so we don't traverse new blocks
 
@@ -60,13 +58,12 @@ bool LowerSwitchPass::runOnFunction(Function &F) {
 
 // switchConvert - Convert the switch statement into a linear scan
 // through all the case values
-void LowerSwitchPass::switchConvert(CaseItr begin, CaseItr end,
-                                    Value* value, BasicBlock* origBlock,
-                                    BasicBlock* defaultBlock)
-{
+void LowerSwitchPass::switchConvert(CaseItr begin, CaseItr end, Value *value,
+                                    BasicBlock *origBlock,
+                                    BasicBlock *defaultBlock) {
   BasicBlock *curHead = defaultBlock;
   Function *F = origBlock->getParent();
-  llvm::IRBuilder<> Builder(defaultBlock);
+  IRBuilder<> Builder(defaultBlock);
 
   // iterate through all the cases, creating a new BasicBlock for each
   for (CaseItr it = begin; it < end; ++it) {
@@ -78,14 +75,15 @@ void LowerSwitchPass::switchConvert(CaseItr begin, CaseItr end,
 
     // If there were any PHI nodes in this successor, rewrite one entry
     // from origBlock to come from newBlock.
-    for (BasicBlock::iterator bi = it->block->begin(); isa<PHINode>(bi); ++bi) {
-      PHINode* PN = cast<PHINode>(bi);
+    for (BasicBlock::iterator bi = it->block->begin(); isa<PHINode>(bi);
+         ++bi) {
+      PHINode *PN = cast<PHINode>(bi);
 
       int blockIndex = PN->getBasicBlockIndex(origBlock);
       assert(blockIndex != -1 && "Switch didn't go to this successor??");
       PN->setIncomingBlock((unsigned)blockIndex, newBlock);
     }
-    
+
     curHead = newBlock;
   }
 
@@ -107,7 +105,7 @@ void LowerSwitchPass::processSwitchInst(SwitchInst *SI) {
   // if-then statements go to this and the PHI nodes are happy.
   BasicBlock *newDefault =
       BasicBlock::Create(F->getContext(), "newDefault", F, defaultBlock);
-  llvm::IRBuilder<> Builder(newDefault);
+  IRBuilder<> Builder(newDefault);
 
   Builder.CreateBr(defaultBlock);
 
@@ -119,13 +117,12 @@ void LowerSwitchPass::processSwitchInst(SwitchInst *SI) {
     assert(BlockIdx != -1 && "Switch didn't go to this successor??");
     PN->setIncomingBlock((unsigned)BlockIdx, newDefault);
   }
-  
+
   CaseVector cases;
 
   for (auto i : SI->cases())
-    cases.push_back(SwitchCase(i.getCaseValue(),
-                               i.getCaseSuccessor()));
-  
+    cases.push_back(SwitchCase(i.getCaseValue(), i.getCaseSuccessor()));
+
   // reverse cases, as switchConvert constructs a chain of
   //   basic blocks by appending to the front. if we reverse,
   //   the if comparisons will happen in the same order
@@ -137,4 +134,15 @@ void LowerSwitchPass::processSwitchInst(SwitchInst *SI) {
   SI->eraseFromParent();
 }
 
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses LowerSwitchPass::run(Function &F,
+                                       FunctionAnalysisManager &AM) {
+  if (runOnFunction(F))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
 }
+#else
+char LowerSwitchPass::ID = 0;
+#endif
+
+} // namespace klee

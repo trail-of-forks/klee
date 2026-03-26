@@ -181,6 +181,31 @@ public:
 /// LowerSwitchPass - Replace all SwitchInst instructions with chained branch
 /// instructions.  Note that this cannot be a BasicBlock pass because it
 /// modifies the CFG!
+#if LLVM_VERSION_MAJOR >= 17
+class LowerSwitchPass : public llvm::PassInfoMixin<LowerSwitchPass> {
+public:
+  llvm::PreservedAnalyses run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM);
+
+  struct SwitchCase {
+    llvm::Constant *value;
+    llvm::BasicBlock *block;
+
+    SwitchCase() : value(0), block(0) {}
+    SwitchCase(llvm::Constant *v, llvm::BasicBlock *b) : value(v), block(b) {}
+  };
+
+  typedef std::vector<SwitchCase> CaseVector;
+  typedef std::vector<SwitchCase>::iterator CaseItr;
+
+private:
+  bool runOnFunction(llvm::Function &F);
+  void processSwitchInst(llvm::SwitchInst *SI);
+  void switchConvert(CaseItr begin, CaseItr end, llvm::Value *value,
+                     llvm::BasicBlock *origBlock,
+                     llvm::BasicBlock *defaultBlock);
+};
+#else
 class LowerSwitchPass : public llvm::FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -189,7 +214,7 @@ public:
   bool runOnFunction(llvm::Function &F) override;
 
   struct SwitchCase {
-    llvm ::Constant *value;
+    llvm::Constant *value;
     llvm::BasicBlock *block;
 
     SwitchCase() : value(0), block(0) {}
@@ -205,6 +230,7 @@ private:
                      llvm::BasicBlock *origBlock,
                      llvm::BasicBlock *defaultBlock);
 };
+#endif
 
 /// InstructionOperandTypeCheckPass - Type checks the types of instruction
 /// operands to check that they conform to invariants expected by the Executor.
