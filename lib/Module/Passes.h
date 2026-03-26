@@ -237,6 +237,18 @@ private:
 ///
 /// This is a ModulePass because other pass types are not meant to maintain
 /// state between calls.
+#if LLVM_VERSION_MAJOR >= 17
+class InstructionOperandTypeCheckPass
+    : public llvm::PassInfoMixin<InstructionOperandTypeCheckPass> {
+private:
+  bool instructionOperandsConform = true;
+  bool runOnModule(llvm::Module &M);
+
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  bool checkPassed() const { return instructionOperandsConform; }
+};
+#else
 class InstructionOperandTypeCheckPass : public llvm::ModulePass {
 private:
   bool instructionOperandsConform;
@@ -248,6 +260,7 @@ public:
   bool runOnModule(llvm::Module &M) override;
   bool checkPassed() const { return instructionOperandsConform; }
 };
+#endif
 
 /// FunctionAliasPass - Enables a user of KLEE to specify aliases to functions
 /// using -function-alias=<name|pattern>:<replacement> which are injected as

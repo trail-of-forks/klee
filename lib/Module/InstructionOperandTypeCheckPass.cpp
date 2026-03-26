@@ -164,8 +164,6 @@ bool checkInstruction(const Instruction *i) {
 
 namespace klee {
 
-char InstructionOperandTypeCheckPass::ID = 0;
-
 bool InstructionOperandTypeCheckPass::runOnModule(Module &M) {
   instructionOperandsConform = true;
   for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
@@ -180,4 +178,15 @@ bool InstructionOperandTypeCheckPass::runOnModule(Module &M) {
 
   return false;
 }
+
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses InstructionOperandTypeCheckPass::run(
+    Module &M, ModuleAnalysisManager &AM) {
+  runOnModule(M);
+  return PreservedAnalyses::all();
+}
+#else
+char InstructionOperandTypeCheckPass::ID = 0;
+#endif
+
 }
