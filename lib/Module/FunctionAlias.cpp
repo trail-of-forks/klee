@@ -221,6 +221,15 @@ bool FunctionAliasPass::isFunctionOrGlobalFunctionAlias(const GlobalValue *gv) {
   return false;
 }
 
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses FunctionAliasPass::run(Module &M,
+                                         ModuleAnalysisManager &AM) {
+  if (runOnModule(M))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
+}
+#else
 char FunctionAliasPass::ID = 0;
+#endif
 
 } // namespace klee
