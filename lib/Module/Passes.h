@@ -43,6 +43,25 @@ namespace klee {
 
 /// RaiseAsmPass - This pass raises some common occurences of inline
 /// asm which are used by glibc into normal LLVM IR.
+#if LLVM_VERSION_MAJOR >= 17
+class RaiseAsmPass : public llvm::PassInfoMixin<RaiseAsmPass> {
+  const llvm::TargetLowering *TLI = nullptr;
+
+  llvm::Triple triple;
+
+  llvm::Function *getIntrinsic(llvm::Module &M, unsigned IID, llvm::Type **Tys,
+                               unsigned NumTys);
+  llvm::Function *getIntrinsic(llvm::Module &M, unsigned IID, llvm::Type *Ty0) {
+    return getIntrinsic(M, IID, &Ty0, 1);
+  }
+
+  bool runOnInstruction(llvm::Module &M, llvm::Instruction *I);
+  bool runOnModule(llvm::Module &M);
+
+public:
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+};
+#else
 class RaiseAsmPass : public llvm::ModulePass {
   static char ID;
 
@@ -63,6 +82,7 @@ public:
 
   bool runOnModule(llvm::Module &M) override;
 };
+#endif
 
 // This is a module pass because it can add and delete module
 // variables (via intrinsic lowering).

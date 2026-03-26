@@ -37,12 +37,10 @@ DISABLE_WARNING_POP
 using namespace llvm;
 using namespace klee;
 
-char RaiseAsmPass::ID = 0;
-
-Function *RaiseAsmPass::getIntrinsic(llvm::Module &M, unsigned IID, Type **Tys,
+Function *RaiseAsmPass::getIntrinsic(Module &M, unsigned IID, Type **Tys,
                                      unsigned NumTys) {
-  return Intrinsic::getDeclaration(&M, (llvm::Intrinsic::ID) IID,
-                                   llvm::ArrayRef<llvm::Type*>(Tys, NumTys));
+  return Intrinsic::getDeclaration(&M, (Intrinsic::ID)IID,
+                                   ArrayRef<Type *>(Tys, NumTys));
 }
 
 // FIXME: This should just be implemented as a patch to
@@ -64,14 +62,14 @@ bool RaiseAsmPass::runOnInstruction(Module &M, Instruction *I) {
   if (TLI->ExpandInlineAsm(ci))
     return true;
 
-  if ((triple.getArch() == llvm::Triple::x86 ||
-       triple.getArch() == llvm::Triple::x86_64) &&
+  if ((triple.getArch() == Triple::x86 ||
+       triple.getArch() == Triple::x86_64) &&
       (triple.isOSLinux() || triple.isMacOSX() || triple.isOSFreeBSD())) {
 
     if (ia->getAsmString() == "" && ia->hasSideEffects() &&
         ia->getFunctionType()->getReturnType()->isVoidTy()) {
       IRBuilder<> Builder(I);
-      Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent);
+      Builder.CreateFence(AtomicOrdering::SequentiallyConsistent);
       I->eraseFromParent();
       return true;
     }
@@ -87,38 +85,44 @@ bool RaiseAsmPass::runOnModule(Module &M) {
   // Use target triple from the module if possible.
   std::string TargetTriple = M.getTargetTriple();
   if (TargetTriple.empty())
-    TargetTriple = llvm::sys::getDefaultTargetTriple();
-  const Target *Target = TargetRegistry::lookupTarget(TargetTriple, Err);
+    TargetTriple = sys::getDefaultTargetTriple();
+  const Target *Tgt = TargetRegistry::lookupTarget(TargetTriple, Err);
 
-  TargetMachine * TM = 0;
-  if (Target == 0) {
+  TargetMachine *TM = nullptr;
+  if (Tgt == nullptr) {
     klee_warning("Warning: unable to select target: %s", Err.c_str());
-    TLI = 0;
+    TLI = nullptr;
   } else {
 #if LLVM_VERSION_CODE >= LLVM_VERSION(16, 0)
-    TM = Target->createTargetMachine(TargetTriple, "", "", TargetOptions(),
-                                     std::nullopt);
+    TM = Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
+                                  std::nullopt);
 #else
-    TM = Target->createTargetMachine(TargetTriple, "", "", TargetOptions(),
-                                     None);
+    TM = Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(), None);
 #endif
-
     TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
-
-    triple = llvm::Triple(TargetTriple);
+    triple = Triple(TargetTriple);
   }
 
   for (Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi) {
     for (Function::iterator bi = fi->begin(), be = fi->end(); bi != be; ++bi) {
       for (BasicBlock::iterator ii = bi->begin(), ie = bi->end(); ii != ie;) {
         Instruction *i = &*ii;
-        ++ii;  
+        ++ii;
         changed |= runOnInstruction(M, i);
       }
     }
   }
 
   delete TM;
-
   return changed;
 }
+
+#if LLVM_VERSION_MAJOR >= 17
+PreservedAnalyses RaiseAsmPass::run(Module &M, ModuleAnalysisManager &AM) {
+  if (runOnModule(M))
+    return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
+}
+#else
+char RaiseAsmPass::ID = 0;
+#endif
