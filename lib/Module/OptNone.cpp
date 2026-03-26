@@ -18,8 +18,6 @@
 
 using namespace llvm;
 
-namespace klee {
-
 static bool runOptNonePass(Module &M) {
   // Find list of functions that start with `klee_`
   // and mark all functions that contain such call or invoke as optnone
@@ -56,6 +54,8 @@ static bool runOptNonePass(Module &M) {
 
   return changed;
 }
+
+namespace klee {
 
 #if LLVM_VERSION_MAJOR >= 17
 PreservedAnalyses OptNonePass::run(Module &M, ModuleAnalysisManager &AM) {

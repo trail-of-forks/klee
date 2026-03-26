@@ -11,6 +11,8 @@
 
 #include "klee/Config/Version.h"
 
+#include "llvm/IR/IRBuilder.h"
+
 #include <set>
 
 using namespace llvm;
@@ -64,13 +66,12 @@ static bool runPhiCleanerPass(Function &f) {
             // this isn't completely necessary, but in the end this is
             // just a pathological case which does not occur very
             // often.
-            Instruction *tmp = new BitCastInst(
-                value, value->getType(), value->getName() + ".phiclean",
-                pi->getIncomingBlock(i)->getTerminator());
+            IRBuilder<> Builder(pi->getIncomingBlock(i)->getTerminator());
+            auto *tmp = Builder.CreateBitCast(
+                value, value->getType(), value->getName() + ".phiclean");
             pi->setIncomingValue(i, tmp);
+            changed = true;
           }
-
-          changed = true;
         }
 
         phis.insert(pi);

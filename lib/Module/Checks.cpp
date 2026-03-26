@@ -52,7 +52,7 @@ static bool runDivCheckPass(Module &M) {
             opcode != Instruction::SRem && opcode != Instruction::URem)
           continue;
 
-        // Check if the operand is constant and not zero, skip in that case.
+        // Check if the divisor is a known non-zero constant, skip in that case.
         const auto &operand = binOp->getOperand(1);
         if (const auto &coOp = dyn_cast<Constant>(operand)) {
           if (!coOp->isZeroValue())
@@ -105,13 +105,14 @@ static bool runOvershiftCheckPass(Module &M) {
             opcode != Instruction::AShr)
           continue;
 
-        // Check if the operand is constant and not zero, skip in that case
+        // Check if the shift amount is a constant within the valid range
+        // [0, typeWidth), skip instrumentation in that case
         auto operand = binOp->getOperand(1);
         if (auto coOp = dyn_cast<ConstantInt>(operand)) {
           auto typeWidth =
               binOp->getOperand(0)->getType()->getScalarSizeInBits();
-          // If the constant shift is positive and smaller,equal the type width,
-          // we can ignore this instruction
+          // If the constant shift is non-negative and strictly less than the
+          // type width, the shift is well-defined and we can safely skip
           if (!coOp->isNegative() && coOp->getZExtValue() < typeWidth)
             continue;
         }

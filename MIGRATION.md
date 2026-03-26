@@ -56,7 +56,7 @@ Return value mapping:
 
 ## Phase 1: OptNonePass (Simplest — warm-up)
 
-**File:** `lib/Module/OptNone.cpp` (59 LOC)
+**File:** `lib/Module/OptNone.cpp` (72 LOC)
 **Complexity:** Very Low
 **Type:** Module pass
 **Dependencies:** None
@@ -66,7 +66,7 @@ Return value mapping:
 1. In `Passes.h`: Change `class OptNonePass : public llvm::ModulePass` → `class OptNonePass : public llvm::PassInfoMixin<OptNonePass>`
 2. Remove `static char ID` and constructor
 3. In `OptNone.cpp`: Change `bool runOnModule(Module &M)` → `PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM)`
-4. Remove `char OptNonePass::ID = 0;`
+4. Remove `char OptNonePass::ID;`
 5. Return `PreservedAnalyses::none()` if modified, `PreservedAnalyses::all()` otherwise
 
 ### Verification
@@ -77,7 +77,7 @@ Return value mapping:
 
 ## Phase 2: DivCheckPass + OvershiftCheckPass
 
-**File:** `lib/Module/Checks.cpp` (~123 LOC combined)
+**File:** `lib/Module/Checks.cpp` (~185 LOC combined)
 **Complexity:** Low
 **Type:** Module passes
 **Dependencies:** Should run after ScalarizerPass
@@ -106,7 +106,7 @@ Same pattern as DivCheckPass.
 
 ## Phase 3: PhiCleanerPass
 
-**File:** `lib/Module/PhiCleaner.cpp` (83 LOC)
+**File:** `lib/Module/PhiCleaner.cpp` (102 LOC)
 **Complexity:** Low
 **Type:** Function pass
 **Dependencies:** Should run after LowerSwitchPass
@@ -498,10 +498,12 @@ uclibc is Linux-only; POSIX runtime can be enabled but is not required for pass 
 
 ### Tests excluded on darwin (skipped automatically by lit)
 
-These tests carry `REQUIRES: not-darwin` and will be skipped:
-- **Variadic function tests** (6 tests in `test/VarArgs/`) — hardcoded x86-64 ABI in `Executor.cpp`
-- **Inline assembly tests** (3 tests) — `Feature/InlineAsm.c`, `Feature/RaiseAsm.c`, `Feature/asm_lifting.ll`
-- **Misc tests** (~10 total) — `LargeReturnTypes`, `Memalign`, `MemoryLimit`, some alias tests
+These tests carry `REQUIRES: not-darwin` and will be skipped (10 total):
+- `test/Feature/` — `Alias.c`, `ConcretizeSymbolicExternals.c`, `EscapingFunctionsAlias.c`, `LargeReturnTypes.cpp`, `Memalign.c`, `MemoryLimit.c`
+- `test/VarArgs/FunctionAliasVarArg.c`
+- `test/Runtime/POSIX/CanonicalizeFileName.c`
+- `test/regression/2016-11-24-bitcast-weak-alias.c`
+- `test/UBSan/ubsan_builtin.c`
 
 ### Recommendation
 
@@ -516,9 +518,9 @@ These tests carry `REQUIRES: not-darwin` and will be skipped:
 
 | Week | Phase | Pass(es) | LOC | Difficulty |
 |------|-------|----------|-----|------------|
-| 1 | Phase 1 | OptNonePass | 59 | Very Low |
-| 2 | Phase 2 | DivCheckPass + OvershiftCheckPass | 123 | Low |
-| 3 | Phase 3 | PhiCleanerPass | 83 | Low |
+| 1 | Phase 1 | OptNonePass | 72 | Very Low |
+| 2 | Phase 2 | DivCheckPass + OvershiftCheckPass | 185 | Low |
+| 3 | Phase 3 | PhiCleanerPass | 102 | Low |
 | 4 | Phase 4 | RaiseAsmPass | 124 | Low |
 | 5 | Phase 5 | LowerSwitchPass | 140 | Low-Medium |
 | 6 | Phase 6 | FunctionAliasPass | 226 | Medium |

@@ -112,6 +112,8 @@ public:
 };
 #endif
 
+/// Injects calls to klee_div_zero_check() before each division/remainder
+/// instruction whose divisor is not a known non-zero constant.
 #if LLVM_VERSION_MAJOR >= 17
 class DivCheckPass : public llvm::PassInfoMixin<DivCheckPass> {
 public:
@@ -219,7 +221,8 @@ private:
 
 };
 
-/// Instruments every function that contains a KLEE function call as nonopt
+/// Marks functions containing klee_* calls with OptimizeNone and NoInline
+/// attributes to prevent optimization of KLEE-interacting code.
 #if LLVM_VERSION_MAJOR >= 17
 class OptNonePass : public llvm::PassInfoMixin<OptNonePass> {
 public:
