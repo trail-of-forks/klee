@@ -66,9 +66,13 @@ static bool runPhiCleanerPass(Function &f) {
             // this isn't completely necessary, but in the end this is
             // just a pathological case which does not occur very
             // often.
+            // Use freeze to create a real instruction that breaks the
+            // PHI-to-PHI dependency. IRBuilder::CreateBitCast folds
+            // identity casts to a no-op, which would fail to break the
+            // dependency. freeze always produces a distinct instruction.
             IRBuilder<> Builder(pi->getIncomingBlock(i)->getTerminator());
-            auto *tmp = Builder.CreateBitCast(
-                value, value->getType(), value->getName() + ".phiclean");
+            auto *tmp = Builder.CreateFreeze(
+                value, value->getName() + ".phiclean");
             pi->setIncomingValue(i, tmp);
             changed = true;
           }

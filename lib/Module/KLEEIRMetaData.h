@@ -37,7 +37,7 @@ public:
   static bool hasAnnotation(const llvm::Instruction &inst, llvm::StringRef key,
                              llvm::StringRef value) {
     auto v = inst.getMetadata(key);
-    if (!v)
+    if (!v || v->getNumOperands() == 0)
       return false;
     auto sv = llvm::dyn_cast<llvm::MDString>(v->getOperand(0));
     if (!sv)
