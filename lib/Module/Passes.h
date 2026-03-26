@@ -30,6 +30,8 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 #endif
 DISABLE_WARNING_POP
 
+#include <memory>
+
 namespace llvm {
 class Function;
 class Instruction;
@@ -89,7 +91,7 @@ public:
 #if LLVM_VERSION_MAJOR >= 17
 class IntrinsicCleanerPass : public llvm::PassInfoMixin<IntrinsicCleanerPass> {
   const llvm::DataLayout &DataLayout;
-  llvm::IntrinsicLowering *IL;
+  std::shared_ptr<llvm::IntrinsicLowering> IL;
 
   bool runOnBasicBlock(llvm::BasicBlock &b, llvm::Module &M);
   bool runOnFunction(llvm::Function &F);
@@ -97,8 +99,8 @@ class IntrinsicCleanerPass : public llvm::PassInfoMixin<IntrinsicCleanerPass> {
 
 public:
   IntrinsicCleanerPass(const llvm::DataLayout &TD)
-      : DataLayout(TD), IL(new llvm::IntrinsicLowering(TD)) {}
-  ~IntrinsicCleanerPass() { delete IL; }
+      : DataLayout(TD),
+        IL(std::make_shared<llvm::IntrinsicLowering>(TD)) {}
 
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 };
