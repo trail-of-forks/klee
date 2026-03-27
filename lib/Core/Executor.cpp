@@ -599,8 +599,21 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
 
   // Initialize the context.
   DataLayout *TD = kmodule->targetData.get();
-  Context::initialize(TD->isLittleEndian(),
-                      (Expr::Width)TD->getPointerSizeInBits());
+  Expr::Width pointerWidth = TD->getPointerSizeInBits();
+  Context::initialize(TD->isLittleEndian(), pointerWidth);
+
+  // Verify that the target pointer width is compatible with the host.
+  // KLEE's memory allocator uses host addresses as simulated addresses,
+  // so a 32-bit target cannot be executed on a 64-bit host (addresses
+  // from mmap/malloc exceed 2^32).
+  if (pointerWidth < sizeof(void *) * 8) {
+    klee_error("Cannot execute %u-bit pointer width module on a %zu-bit host.\n"
+               "KLEE's memory allocator uses host addresses which may exceed "
+               "the target's pointer range.\n"
+               "Recompile the program for the host architecture, or use a "
+               "matching 32-bit host.",
+               (unsigned)pointerWidth, sizeof(void *) * 8);
+  }
 
   return kmodule->module.get();
 }
