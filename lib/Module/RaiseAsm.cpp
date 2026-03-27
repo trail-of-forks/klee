@@ -91,9 +91,9 @@ bool RaiseAsmPass::runOnModule(Module &M) {
   const Target *Tgt = TargetRegistry::lookupTarget(TargetTriple, Err);
 
   std::unique_ptr<TargetMachine> TM;
+  TLI = nullptr;
   if (Tgt == nullptr) {
     klee_warning("Warning: unable to select target: %s", Err.c_str());
-    TLI = nullptr;
   } else {
 #if LLVM_VERSION_CODE >= LLVM_VERSION(16, 0)
     TM.reset(Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
@@ -102,11 +102,11 @@ bool RaiseAsmPass::runOnModule(Module &M) {
     TM.reset(Tgt->createTargetMachine(TargetTriple, "", "", TargetOptions(),
                                       None));
 #endif
-    if (M.empty()) {
-      TLI = nullptr;
-    } else {
-      TLI = TM->getSubtargetImpl(*(M.begin()))->getTargetLowering();
-      triple = Triple(TargetTriple);
+    if (TM && !M.empty()) {
+      if (auto *STI = TM->getSubtargetImpl(*(M.begin())))
+        TLI = STI->getTargetLowering();
+      if (TLI)
+        triple = Triple(TargetTriple);
     }
   }
 
