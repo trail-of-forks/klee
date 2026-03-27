@@ -71,6 +71,16 @@ void klee::instrument(bool CheckDivZero, bool CheckOvershift,
     MPM.addPass(OvershiftCheckPass());
 
   MPM.addPass(IntrinsicCleanerPass(module->getDataLayout()));
+
+  // PhiCleaner breaks phi-to-phi dependencies that KLEE's sequential phi
+  // evaluation would otherwise mishandle.
+  FunctionPassManager FPM2;
+  FPM2.addPass(PhiCleanerPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
+
+  // PhiCleaner inserts freeze instructions; clean them up.
+  MPM.addPass(IntrinsicCleanerPass(module->getDataLayout()));
+
   MPM.run(*module, MAM);
 }
 

@@ -1,3 +1,5 @@
+// The default klee-stats table format requires the tabulate Python package
+// REQUIRES: tabulate
 // sqlite databases must be opened with write permissions, so we copy the test cases to the output dir
 RUN: rm -rf %t.klee-stats
 RUN: mkdir %t.klee-stats

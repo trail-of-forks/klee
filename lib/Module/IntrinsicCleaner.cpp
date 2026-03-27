@@ -162,6 +162,23 @@ bool IntrinsicCleanerPass::runOnBasicBlock(BasicBlock &b, Module &M) {
         break;
       }
 
+      // Lower llvm.ptrmask to inttoptr(ptrtoint(ptr) & mask).
+      // LLVM 20 uses this for va_arg overflow area alignment.
+      case Intrinsic::ptrmask: {
+        llvm::IRBuilder<> Builder(ii);
+        Value *ptr = ii->getArgOperand(0);
+        Value *mask = ii->getArgOperand(1);
+        Type *intTy = mask->getType();
+        Value *ptrInt = Builder.CreatePtrToInt(ptr, intTy, "ptrmask.cast");
+        Value *masked = Builder.CreateAnd(ptrInt, mask, "ptrmask.and");
+        Value *result = Builder.CreateIntToPtr(masked, ptr->getType(),
+                                               "ptrmask.result");
+        ii->replaceAllUsesWith(result);
+        ii->eraseFromParent();
+        dirty = true;
+        break;
+      }
+
       case Intrinsic::sadd_with_overflow:
       case Intrinsic::ssub_with_overflow:
       case Intrinsic::smul_with_overflow:

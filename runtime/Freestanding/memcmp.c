@@ -51,3 +51,20 @@ int memcmp(const void *s1, const void *s2, size_t n) {
   }
   return (0);
 }
+
+/*
+ * bcmp - compare byte sequences (equality only).
+ *
+ * LLVM's optimizer may transform memcmp calls into bcmp when only
+ * equality is checked. Defined here alongside memcmp so that it is
+ * always linked when memcmp is. Weak so klee-libc's version wins.
+ */
+__attribute__((weak))
+int bcmp(const void *s1, const void *s2, size_t n) {
+  const unsigned char *p1 = s1, *p2 = s2;
+  while (n-- > 0) {
+    if (*p1++ != *p2++)
+      return 1;
+  }
+  return 0;
+}

@@ -325,86 +325,56 @@ def rename_columns(row, name_mapping):
     return row
 
 
-def write_table(args, data, dirs, pr):
-    from tabulate import TableFormat, Line, DataRow, tabulate
-
-    KleeTable = TableFormat(lineabove=Line("-", "-", "-", "-"),
-                            linebelowheader=Line("-", "-", "-", "-"),
-                            linebetweenrows=None,
-                            linebelow=Line("-", "-", "-", "-"),
-                            headerrow=DataRow("|", "|", "|"),
-                            datarow=DataRow("|", "|", "|"),
-                            padding=0,
-                            with_header_hide=None)
-
+def _build_table(args, data, dirs, pr):
+    """Build the summary table dict and ordered headers from data."""
     if len(data) > 1:
         dirs = stripCommonPathPrefix(dirs)
-    # attach the stripped path
     data = list(zip(dirs, data))
 
-    # build the main body of the table
     table = dict()
     for i, (path, records) in enumerate(data):
         stats = records.aggregateRecords()
-        # Get raw row
         single_row = records.getLastRecord()
         if single_row is None:
-            # empty or corrupt SQLite database
             single_row = {}
         single_row['Path'] = path
         single_row.update(stats)
-
-        # Extend row with additional entries
         single_row = add_artificial_columns(single_row)
         single_row = select_columns(single_row, pr)
 
         for key in set.union(set(single_row.keys()), set(table.keys())):
-            # Not all columns in row: add "None"
             if key not in single_row:
                 table[key].append(None)
                 continue
-
-            # New column: extend if necessary for previous rows
             if key not in table:
                 table[key] = [None] * i
-
-            # add the value
             table[key].append(single_row[key])
 
-    # Rename columns
     name_mapping = dict()
     for entry in Legend:
         name_mapping[entry[2]] = entry[0]
     table = rename_columns(table, name_mapping)
 
-    # Apply column filter provided by user
     user_columns = []
     if args.columns is not None:
         user_columns = [c for c in map(lambda v: v.strip(), args.columns.split(',')) if c]
         column_names = list(table.keys())
-        # error when user-provided column does not exist
         diff = set(user_columns) - set(column_names)
         if diff:
             print('Column(s) not found:', ', '.join(diff), file=sys.stderr)
             sys.exit(1)
-        # error when no name given
         if not user_columns:
             print('No column name specified for --print-columns.', file=sys.stderr)
             sys.exit(1)
-        # filter
         for k in column_names:
             if k not in user_columns:
                 table.pop(k)
 
-    # Add a summary row
     max_len = len(data)
     if max_len > 1 and args.tableFormat not in ['csv', 'readable-csv']:
-        # calculate the total
         for k in table:
-            if k == "Path": # Skip path
+            if k == "Path":
                 continue
-            # TODO: this is a bit bad but ... . In a nutshell, if the name of a column starts or ends with certain
-            #  pattern change the summary function.
             if k.startswith("Avg") or k.endswith("(%)"):
                 total = sum([e for e in table[k] if e is not None])/max_len
             elif k.startswith("Max"):
@@ -412,10 +382,8 @@ def write_table(args, data, dirs, pr):
             else:
                 total = sum([e for e in table[k] if e is not None])
             table[k].append(total)
-
         table['Path'].append('Total ({0})'.format(max_len))
 
-    # Prepare the order of the header: start to order entries according to the order in legend and add the unknown entries at the end
     headers = user_columns
     if not headers:
         headers = ["Path"]
@@ -428,11 +396,86 @@ def write_table(args, data, dirs, pr):
         available_headers.sort()
         headers += available_headers
 
-    # Make sure we keep the correct order of the column entries
     final_table = collections.OrderedDict()
     for column in headers:
         final_table[column] = table[column]
-    table = final_table
+    return final_table
+
+
+def write_csv_table(args, data, dirs, pr):
+    """Write the summary table in CSV format using only stdlib."""
+    table = _build_table(args, data, dirs, pr)
+    headers = list(table.keys())
+    num_rows = len(next(iter(table.values()))) if table else 0
+    readable = getattr(args, 'tableFormat', 'csv') == 'readable-csv'
+
+    # Format all cells
+    formatted = []
+    for i in range(num_rows):
+        row = []
+        for h in headers:
+            v = table[h][i]
+            if isinstance(v, float):
+                row.append('{:.2f}'.format(v))
+            elif v is None:
+                row.append('')
+            else:
+                row.append(str(v))
+        formatted.append(row)
+
+    if readable:
+        # Pad columns for aligned readable output (matches tabulate readable-csv)
+        col_widths = [len(h) for h in headers]
+        for row in formatted:
+            for j, cell in enumerate(row):
+                col_widths[j] = max(col_widths[j], len(cell))
+
+        def is_numeric(cell):
+            try:
+                float(cell)
+                return True
+            except ValueError:
+                return False
+
+        # Headers: right-justify to match column width (with leading spaces)
+        hdr_parts = []
+        for j, h in enumerate(headers):
+            hdr_parts.append(h.ljust(col_widths[j]))
+        # Join with comma: first field has no leading space, rest have leading spaces
+        print(','.join(
+            [hdr_parts[0]] + ['  ' + p for p in hdr_parts[1:]]
+        ))
+        for row in formatted:
+            parts = []
+            for j, cell in enumerate(row):
+                if is_numeric(cell):
+                    parts.append(cell.rjust(col_widths[j]))
+                else:
+                    parts.append(cell.ljust(col_widths[j]))
+            print(','.join(
+                [parts[0]] + ['  ' + p for p in parts[1:]]
+            ))
+    else:
+        import csv
+        writer = csv.writer(sys.stdout)
+        writer.writerow(headers)
+        for row in formatted:
+            writer.writerow(row)
+
+
+def write_table(args, data, dirs, pr):
+    from tabulate import TableFormat, Line, DataRow, tabulate
+
+    KleeTable = TableFormat(lineabove=Line("-", "-", "-", "-"),
+                            linebelowheader=Line("-", "-", "-", "-"),
+                            linebetweenrows=None,
+                            linebelow=Line("-", "-", "-", "-"),
+                            headerrow=DataRow("|", "|", "|"),
+                            datarow=DataRow("|", "|", "|"),
+                            padding=0,
+                            with_header_hide=None)
+
+    table = _build_table(args, data, dirs, pr)
 
     # Output table
     # - KLEE standard format
@@ -490,14 +533,14 @@ def main():
 
     parser.add_argument('dir', nargs='+', help='KLEE output directory')
 
+    # csv/readable-csv are always available (stdlib); other formats need tabulate
     if tabulate_available:
         tf_choices = ['klee', 'csv', 'readable-csv'] + list(_table_formats.keys())
-        tf_help = 'Table format for the summary.'
         tf_default = 'klee'
     else:
-        tf_choices = []
-        tf_help = '(not available due to missing "tabulate" package)'
-        tf_default = None
+        tf_choices = ['csv', 'readable-csv']
+        tf_default = 'csv'
+    tf_help = 'Table format for the summary.'
     parser.add_argument('--table-format',
                         choices=tf_choices, dest='tableFormat', default=tf_default,
                         help=tf_help)
@@ -539,10 +582,12 @@ def main():
     args = parser.parse_args()
 
 
-    if not tabulate_available and not (args.grafana or args.toCsv):
+    if not tabulate_available and not (args.grafana or args.toCsv or
+                                       args.tableFormat in ('csv', 'readable-csv')):
         print('Error: Package "tabulate" required for table formatting. '
               'Please install it using "pip" or your package manager. '
-              'You can still use --grafana and --to-csv without tabulate.',
+              'You can still use --grafana, --to-csv, and --table-format=csv '
+              'without tabulate.',
               file=sys.stderr)
         sys.exit(1)
 
@@ -579,7 +624,11 @@ def main():
         write_csv(data)
         return
 
-    write_table(args, data, dirs, pr)
+    # Use stdlib CSV writer when tabulate is not available
+    if args.tableFormat in ('csv', 'readable-csv') and not tabulate_available:
+        write_csv_table(args, data, dirs, pr)
+    else:
+        write_table(args, data, dirs, pr)
 
 
 if __name__ == '__main__':

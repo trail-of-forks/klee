@@ -27,6 +27,11 @@ extern int foo3(void) __attribute__((alias("__foo")));
 
 int *c = &a;
 
+// Helper to prevent compile-time folding of function pointer comparisons.
+// Clang 20 folds alias pointer comparisons at the AST level.
+__attribute__((noinline))
+static void *opaque(void *p) { return p; }
+
 int main() {
   assert(a == 52);
   assert(*c == 52);
@@ -39,9 +44,12 @@ int main() {
   assert(foo2() == 52);
   assert(foo3() == 52);
 
-  assert(foo != __foo);
-  assert(foo2 != __foo);
-  assert(foo3 == __foo);
+  // With LLVM 20 opaque pointers, all aliases of the same function resolve
+  // to the same address (no bitcast indirection), so all comparisons are ==.
+  // Use opaque() to prevent Clang from folding the comparisons at compile time.
+  assert(opaque((void*)(long)foo) == opaque((void*)(long)__foo));
+  assert(opaque((void*)(long)foo2) == opaque((void*)(long)__foo));
+  assert(opaque((void*)(long)foo3) == opaque((void*)(long)__foo));
 
   return 0;
 }

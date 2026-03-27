@@ -34,7 +34,7 @@ ReadExpr *ArrayExprHelper::hasOrderedReads(const ConcatExpr &ce) {
 
   // Get stride expr in proper index width.
   Expr::Width idxWidth = base->index->getWidth();
-  ref<Expr> strideExpr = ConstantExpr::alloc(-1, idxWidth);
+  ref<Expr> strideExpr = ConstantExpr::alloc(llvm::APInt(idxWidth, -1, /*isSigned=*/true));
   ref<Expr> offset = ConstantExpr::create(0, idxWidth);
 
   ref<Expr> e = ce.getKid(1);

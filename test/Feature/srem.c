@@ -1,8 +1,8 @@
 // RUN: %clang %s -emit-llvm -g %O0opt -c -o %t.bc
 // RUN: rm -rf %t.klee-out
-// RUN: %klee --output-dir=%t.klee-out --klee-call-optimisation=false %t.bc 2>&1 | FileCheck %s
+// RUN: %klee --output-dir=%t.klee-out --klee-call-optimisation=false %t.bc 2>&1 | FileCheck --check-prefix=CHECK-NOOPT %s
 // RUN: rm -rf %t.klee-out
-// RUN: %klee --output-dir=%t.klee-out --klee-call-optimisation=false --optimize %t.bc 2>&1 | FileCheck %s
+// RUN: %klee --output-dir=%t.klee-out --klee-call-optimisation=false --optimize %t.bc 2>&1 | FileCheck --check-prefix=CHECK-OPT %s
 #include "klee/klee.h"
 #include <assert.h>
 
@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     if (y >= 0) {
       if (y < 2) {
         // Two test cases generated taking this path, one for y == 0 and y == 1
-        // CHECK: srem.c:[[@LINE+1]]: divide by zero
+        // CHECK-NOOPT: srem.c:[[@LINE+1]]: divide by zero
         assert(1 % y == 0);
       } else {
         assert(1 % y == 1);
@@ -35,9 +35,13 @@ int main(int argc, char** argv)
 
     // should fail for y == 0 and y == +/-1, but succeed for all others
     // generates one testcase for either y == 1 or y == -1
-    // CHECK: srem.c:[[@LINE+1]]: ASSERTION FAIL
+    // CHECK-NOOPT: srem.c:[[@LINE+1]]: ASSERTION FAIL
     assert(-1 % y == -1);
 
-    // CHECK: KLEE: done: completed paths = 2
-    // CHECK: KLEE: done: partially completed paths = 3
+    // CHECK-NOOPT: KLEE: done: completed paths = 2
+    // CHECK-NOOPT: KLEE: done: partially completed paths = 3
+
+    // Optimized run may merge branches, changing line numbers and path counts
+    // CHECK-OPT: srem.c:{{[0-9]+}}: divide by zero
+    // CHECK-OPT: srem.c:{{[0-9]+}}: ASSERTION FAIL
 }

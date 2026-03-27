@@ -580,6 +580,7 @@ Executor::setModule(std::vector<std::unique_ptr<llvm::Module>> &modules,
   preservedFunctions.push_back("memcpy");
   preservedFunctions.push_back("memcmp");
   preservedFunctions.push_back("memmove");
+  preservedFunctions.push_back("bcmp");
 
   kmodule->optimiseAndPrepare(opts, preservedFunctions);
   kmodule->checkModule();
@@ -3064,7 +3065,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 #endif
     Arg.convertToInteger(valueRef, resultType, true,
                          llvm::APFloat::rmTowardZero, &isExact);
-    bindLocal(ki, state, ConstantExpr::alloc(value, resultType));
+    bindLocal(ki, state, ConstantExpr::alloc(llvm::APInt(resultType, value, /*isSigned=*/true)));
     break;
   }
 
@@ -3387,6 +3388,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
                               "Unexpected AtomicCmpXchg instruction, should be "
                               "lowered by LowerAtomicInstructionPass");
     break;
+  // Freeze is a no-op for KLEE's purposes: it just passes the value through.
+  // PhiCleaner inserts freeze to break phi-to-phi dependencies.
+  case Instruction::Freeze: {
+    ref<Expr> result = eval(ki, 0, state).value;
+    bindLocal(ki, state, result);
+    break;
+  }
+
   // Other instructions...
   // Unhandled
   default:

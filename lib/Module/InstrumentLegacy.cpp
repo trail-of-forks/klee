@@ -58,6 +58,11 @@ void klee::instrument(bool CheckDivZero, bool CheckOvershift,
 
   llvm::DataLayout targetData(module);
   pm.add(new IntrinsicCleanerPass(targetData));
+  // PhiCleaner breaks phi-to-phi dependencies that KLEE's sequential phi
+  // evaluation would otherwise mishandle.
+  pm.add(new PhiCleanerPass());
+  // PhiCleaner inserts freeze instructions; clean them up.
+  pm.add(new IntrinsicCleanerPass(targetData));
   pm.run(*module);
 }
 

@@ -1,5 +1,5 @@
 // This test checks that symbolic arguments to a function call are correctly concretized
-// RUN: %clang %s -emit-llvm %O0opt -g -c -o %t.bc
+// RUN: %clang %s -emit-llvm %O0opt -g -c -fno-builtin-abs -o %t.bc
 
 // RUN: rm -rf %t.klee-out
 // RUN: %klee --output-dir=%t.klee-out --external-calls=all --exit-on-error %t.bc 2>&1 | FileCheck %s
